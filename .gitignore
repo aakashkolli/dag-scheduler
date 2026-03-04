@@ -1,0 +1,41 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/dag-scheduler
+/coordinator
+/worker
+/cli
+bin/
+dist/
+
+# Go build artifacts
+*.test
+*.out
+/vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# BoltDB data files
+*.db
+*.bolt
+data/
+
+# Python scripts
+__pycache__/
+*.pyc
+*.pyo
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# OS-specific
+.DS_Store
+.DS_Store?
+._*
