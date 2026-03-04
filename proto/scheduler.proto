@@ -1,0 +1,140 @@
+syntax = "proto3";
+package scheduler;
+
+option go_package = "github.com/aakashkolli/dag-scheduler/internal/proto/scheduler";
+
+// Workflow submission
+message TaskSpec {
+  string task_id = 1;
+  repeated string dependencies = 2;
+  string command = 3;
+  map<string, string> env = 4;
+  int32 timeout_seconds = 5;
+  int32 max_retries = 6;
+}
+
+message WorkflowSpec {
+  string workflow_id = 1;
+  repeated TaskSpec tasks = 2;
+  FailurePolicy failure_policy = 3;
+}
+
+enum FailurePolicy {
+  FAIL_FAST = 0;
+  SKIP_DOWNSTREAM = 1;
+  CONTINUE_INDEPENDENT = 2;
+}
+
+// Worker stream messages
+message WorkerMessage {
+  string worker_id = 1;
+  oneof payload {
+    TaskRequest task_request = 2;
+    Heartbeat heartbeat = 3;
+    TaskResult task_result = 4;
+  }
+}
+
+message TaskRequest {
+  int32 capacity = 1;
+}
+
+message Heartbeat {
+  int64 timestamp_unix_ms = 1;
+  repeated string running_task_ids = 2;
+}
+
+message TaskResult {
+  string task_id = 1;
+  string execution_id = 2;
+  bool success = 3;
+  string output = 4;
+  string error = 5;
+  int64 duration_ms = 6;
+}
+
+// Coordinator response messages
+message CoordinatorMessage {
+  oneof payload {
+    TaskAssignment task_assignment = 1;
+    NoTask no_task = 2;
+    Ping ping = 3;
+  }
+}
+
+message TaskAssignment {
+  string task_id = 1;
+  string execution_id = 2;
+  string command = 3;
+  map<string, string> env = 4;
+  int32 timeout_seconds = 5;
+}
+
+message NoTask {
+  int32 wait_ms = 1;
+}
+
+message Ping {
+  int64 timestamp_unix_ms = 1;
+}
+
+// Status queries
+message WorkflowStatus {
+  string workflow_id = 1;
+  WorkflowState state = 2;
+  repeated TaskStatus task_statuses = 3;
+  int64 submitted_at_unix_ms = 4;
+  int64 completed_at_unix_ms = 5;
+}
+
+enum WorkflowState {
+  WORKFLOW_RUNNING = 0;
+  WORKFLOW_COMPLETE = 1;
+  WORKFLOW_FAILED = 2;
+  WORKFLOW_CANCELLED = 3;
+}
+
+message TaskStatus {
+  string task_id = 1;
+  TaskState state = 2;
+  int32 attempt_count = 3;
+  string output = 4;
+  string error = 5;
+}
+
+enum TaskState {
+  TASK_PENDING = 0;
+  TASK_QUEUED = 1;
+  TASK_RUNNING = 2;
+  TASK_COMPLETE = 3;
+  TASK_FAILED = 4;
+  TASK_SKIPPED = 5;
+  TASK_UNKNOWN = 6;
+}
+
+// gRPC Service
+service Scheduler {
+  rpc SubmitWorkflow(WorkflowSpec) returns (SubmitWorkflowResponse);
+  rpc GetWorkflowStatus(GetWorkflowStatusRequest) returns (WorkflowStatus);
+  rpc CancelWorkflow(CancelWorkflowRequest) returns (CancelWorkflowResponse);
+  rpc WorkerStream(stream WorkerMessage) returns (stream CoordinatorMessage);
+}
+
+message SubmitWorkflowResponse {
+  string workflow_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message GetWorkflowStatusRequest {
+  string workflow_id = 1;
+}
+
+message CancelWorkflowRequest {
+  string workflow_id = 1;
+}
+
+message CancelWorkflowResponse {
+  bool success = 1;
+  string error = 2;
+}
