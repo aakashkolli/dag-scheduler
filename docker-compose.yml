@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  coordinator:
+    build: .
+    entrypoint: ["/coordinator"]
+    command:
+      - "--port=50051"
+      - "--db=/data/scheduler.db"
+      - "--metrics-port=9090"
+      - "--scan-interval=5s"
+      - "--dead-threshold=15s"
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    volumes:
+      - coordinator-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  worker1:
+    build: .
+    entrypoint: ["/worker"]
+    command: ["--coordinator=coordinator:50051", "--capacity=4"]
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker2:
+    build: .
+    entrypoint: ["/worker"]
+    command: ["--coordinator=coordinator:50051", "--capacity=4"]
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker3:
+    build: .
+    entrypoint: ["/worker"]
+    command: ["--coordinator=coordinator:50051", "--capacity=4"]
+    depends_on:
+      coordinator:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    depends_on:
+      - coordinator
+    restart: unless-stopped
+
+volumes:
+  coordinator-data:
