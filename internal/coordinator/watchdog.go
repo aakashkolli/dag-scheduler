@@ -10,10 +10,12 @@ import (
 
 const (
 	watchdogScanInterval  = 30 * time.Second
-	watchdogHungThreshold = 5 * time.Minute
+	watchdogHungThreshold = 10 * time.Minute
 )
 
-// runWatchdog alerts on workflows that have been RUNNING longer than watchdogHungThreshold.
+// runWatchdog alerts on workflows that have been RUNNING longer than watchdogHungThreshold
+// without reaching a terminal state. This satisfies PRD invariant #1: no workflow hangs
+// indefinitely without detection.
 func (c *Coordinator) runWatchdog(ctx context.Context) {
 	ticker := time.NewTicker(watchdogScanInterval)
 	defer ticker.Stop()
@@ -35,16 +37,19 @@ func (c *Coordinator) checkHungWorkflows() {
 	}
 
 	nowMs := time.Now().UnixMilli()
+	thresholdMs := watchdogHungThreshold.Milliseconds()
 
 	for _, wf := range workflows {
 		if wf.State != scheduler.WorkflowState_WORKFLOW_RUNNING {
 			continue
 		}
-		if nowMs-wf.SubmittedAtMs > watchdogHungThreshold.Milliseconds() {
+		ageMs := nowMs - wf.SubmittedAtMs
+		if ageMs > thresholdMs {
 			if c.logger != nil {
-				c.logger.Warn("workflow appears hung",
+				c.logger.Warn("workflow appears hung — no terminal state reached",
 					zap.String("workflow_id", wf.WorkflowID),
-					zap.Int64("age_seconds", (nowMs-wf.SubmittedAtMs)/1000),
+					zap.Int64("age_seconds", ageMs/1000),
+					zap.Int64("threshold_seconds", thresholdMs/1000),
 				)
 			}
 		}
