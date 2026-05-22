@@ -1,6 +1,6 @@
 # dag-scheduler
 
-A fault-tolerant distributed DAG task scheduler in Go. Clients submit directed acyclic graph workflows over gRPC. The coordinator resolves dependencies, dispatches tasks to a pull-based worker pool via bidirectional streams, and recovers from both worker and coordinator crashes without losing state.
+A crash-recoverable distributed DAG task scheduler in Go. Clients submit directed acyclic graph workflows over gRPC. The coordinator resolves dependencies, dispatches tasks to a pull-based worker pool via bidirectional streams, and recovers from both worker and coordinator crashes without losing state.
 
 ## Architecture
 
